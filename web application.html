@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Liquor & Whisky Shop Finder with Routes</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f8f8f8; }
+    header { background: maroon; color: white; text-align: center; padding: 15px; }
+    .search-box { text-align: center; margin: 15px; }
+    input, button {
+      padding: 8px; margin: 5px;
+      border-radius: 5px; border: 1px solid #ccc;
+    }
+    button { background: maroon; color: white; cursor: pointer; }
+    button:hover { background: darkred; }
+    #map { height: 500px; margin: 20px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🥃 Whisky & Liquor Shop Finder with Route</h1>
+  </header>
+
+  <div class="search-box">
+    <input type="text" id="cityInput" placeholder="Enter city name (e.g., Hyderabad)">
+    <button onclick="searchCity()">Search</button>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+  <script>
+    // Sample shops (Wine + Liquor)
+    const shops = [
+      { name: "Hyderabad Wine Mart", type: "Wine Shop", lat: 17.385, lng: 78.4867, city: "Hyderabad" },
+      { name: "Royal Liquors Banjara Hills", type: "Liquor Shop", lat: 17.412, lng: 78.434, city: "Hyderabad" },
+      { name: "Elite Wines Jubilee Hills", type: "Wine Shop", lat: 17.430, lng: 78.420, city: "Hyderabad" },
+      { name: "Vijayawada Wine World", type: "Wine Shop", lat: 16.506, lng: 80.648, city: "Vijayawada" },
+      { name: "Krishna Liquor Store", type: "Liquor Shop", lat: 16.512, lng: 80.632, city: "Vijayawada" },
+      { name: "Vizag Wine House", type: "Wine Shop", lat: 17.6868, lng: 83.2185, city: "Visakhapatnam" },
+      { name: "Beach Road Liquors", type: "Liquor Shop", lat: 17.71, lng: 83.32, city: "Visakhapatnam" }
+    ];
+
+    let map = L.map('map').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let markers = [];
+    let routingControl = null;
+    let userLocation = null;
+
+    // Get user location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        userLocation = [pos.coords.latitude, pos.coords.longitude];
+        L.marker(userLocation).addTo(map).bindPopup("📍 You are here").openPopup();
+        map.setView(userLocation, 12);
+      });
+    }
+
+    // Search city and show shops
+    async function searchCity() {
+      const city = document.getElementById("cityInput").value.trim();
+      if (!city) {
+        alert("Please enter a city name.");
+        return;
+      }
+
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`);
+      const data = await response.json();
+
+      if (data.length === 0) {
+        alert("City not found.");
+        return;
+      }
+
+      const lat = parseFloat(data[0].lat);
+      const lon = parseFloat(data[0].lon);
+      map.setView([lat, lon], 12);
+
+      const cityShops = shops.filter(s => s.city.toLowerCase() === city.toLowerCase());
+      if (cityShops.length === 0) {
+        alert(`No shops found in ${city}`);
+        return;
+      }
+
+      cityShops.forEach(shop => {
+        let marker = L.marker([shop.lat, shop.lng]).addTo(map)
+          .bindPopup(`<b>${shop.name}</b><br>${shop.type}<br>${shop.city}<br>
+            <button onclick="showRoute(${shop.lat},${shop.lng})">Show Route</button>`);
+        markers.push(marker);
+      });
+    }
+
+    // Show route from user location to selected shop
+    function showRoute(shopLat, shopLng) {
+      if (!userLocation) {
+        alert("User location not available!");
+        return;
+      }
+
+      if (routingControl) {
+        map.removeControl(routingControl);
+      }
+
+      routingControl = L.Routing.control({
+        waypoints: [
+          L.latLng(userLocation[0], userLocation[1]),
+          L.latLng(shopLat, shopLng)
+        ],
+        routeWhileDragging: true
+      }).addTo(map);
+    }
+  </script>
+</body>
+</html>
